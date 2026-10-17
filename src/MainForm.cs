@@ -37,12 +37,11 @@ namespace TuneAndSwap
 
         private readonly Button connectButton = new Button { Text = "Connect", Width = 90 };
         private readonly Label statusLabel = new Label { Text = "Disconnected", AutoSize = true };
-        private readonly CheckBox legacyBcd = new CheckBox { Text = "Use legacy 16-bit BCD (10 kHz steps)", AutoSize = true };
         private readonly Label com1Active = NewReadout();
         private readonly Label com1Standby = NewReadout();
         private readonly Label com2Active = NewReadout();
         private readonly Label com2Standby = NewReadout();
-        private readonly TextBox com1Input = new TextBox { Text = "118.275", Width = 80 };
+        private readonly TextBox com1Input = new TextBox { Text = "118.270", Width = 80 };
         private readonly TextBox com2Input = new TextBox { Text = "121.900", Width = 80 };
         private readonly Button com1Set = new Button { Text = "Set standby" };
         private readonly Button com2Set = new Button { Text = "Set standby" };
@@ -55,7 +54,7 @@ namespace TuneAndSwap
         public MainForm()
         {
             Text = "Prepar3D v5 - COM Tune & Swap PoC";
-            ClientSize = new System.Drawing.Size(520, 260);
+            ClientSize = new System.Drawing.Size(520, 220);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
 
@@ -63,7 +62,7 @@ namespace TuneAndSwap
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 6,
-                RowCount = 6,
+                RowCount = 5,
                 Padding = new Padding(10),
             };
             Controls.Add(grid);
@@ -81,8 +80,6 @@ namespace TuneAndSwap
             grid.Controls.Add(xpndrInput, 3, 4);
             grid.Controls.Add(xpndrSet, 4, 4);
 
-            grid.Controls.Add(legacyBcd, 0, 5);
-            grid.SetColumnSpan(legacyBcd, 6);
 
             connectButton.Click += (s, e) => { if (sim == null) Connect(); else Disconnect(); };
             com1Set.Click += (s, e) => SetStandby(EVENTS.COM1_STBY_SET, com1Input);
@@ -195,7 +192,7 @@ namespace TuneAndSwap
                 SetStatus("Enter a COM frequency between 118.000 and 136.995 MHz");
                 return;
             }
-            uint bcd = legacyBcd.Checked ? Bcd.FromMHzLegacy16(mhz) : Bcd.FromMHz(mhz);
+            uint bcd = Bcd.FromMHz(mhz);
             Send(ev, bcd);
             SetStatus(string.Format(CultureInfo.InvariantCulture, "Sent {0} = 0x{1:X} ({2:F3} MHz)", ev, bcd, mhz));
         }
