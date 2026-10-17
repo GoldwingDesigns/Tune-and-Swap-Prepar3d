@@ -82,6 +82,8 @@ The app reflects this: the transmit radio's monitor box is ticked and locked, an
 `COM_RECEIVE_ALL_SET`. The UI never changes on click; it updates from the sim readback, so what you see is the
 sim's real state.
 
+> **Tested:** transmit/monitor selection works in the Prepar3D v5 default aircraft. It does *not* work in the TFDi 717.
+>
 > **Known limitation.** `PILOT_TRANSMITTER_SET`, `COM1_RECEIVE_SELECT` and `COM2_RECEIVE_SELECT` (MSFS-era events)
 > are not recognised by Prepar3D v5 (`NAME_UNRECOGNIZED`), so the app doesn't use them. The three events above *are*
 > recognised and the sim briefly applies them, but in some aircraft the aircraft's own audio-panel logic immediately
