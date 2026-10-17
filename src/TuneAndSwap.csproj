@@ -13,12 +13,12 @@
 
   <PropertyGroup>
     <!-- Override on the command line: msbuild /p:P3DSdkPath="C:\Program Files\Lockheed Martin\Prepar3D v5 SDK 5.x.x" -->
-    <P3DSdkPath Condition="'$(P3DSdkPath)' == ''">C:\Program Files\Lockheed Martin\Prepar3D v5 SDK 5.4.16.30000</P3DSdkPath>
+    <P3DSdkPath Condition="'$(P3DSdkPath)' == ''">C:\Program Files\Lockheed Martin\Prepar3D v5 SDK 5.4.9.28482</P3DSdkPath>
   </PropertyGroup>
 
   <ItemGroup>
     <Reference Include="LockheedMartin.Prepar3D.SimConnect">
-      <HintPath>$(P3DSdkPath)\Core Utilities Kit\SimConnect SDK\lib\managed\LockheedMartin.Prepar3D.SimConnect.dll</HintPath>
+      <HintPath>$(P3DSdkPath)\lib\SimConnect\managed\LockheedMartin.Prepar3D.SimConnect.dll</HintPath>
       <Private>True</Private>
     </Reference>
   </ItemGroup>
