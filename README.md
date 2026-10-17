@@ -9,6 +9,7 @@ via SimConnect, and shows the live frequencies read back from the sim.
 | Set COM2 standby | `COM2_STBY_RADIO_SET` | BCD Hz |
 | Swap COM1 | `COM_STBY_RADIO_SWAP` | – |
 | Swap COM2 | `COM2_RADIO_SWAP` | – |
+| Set transponder | `XPNDR_SET` | BCD16 (squawk 1200 → `0x1200`) |
 
 ## Build (Windows)
 
