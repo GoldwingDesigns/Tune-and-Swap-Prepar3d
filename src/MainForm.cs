@@ -17,6 +17,9 @@ namespace TuneAndSwap
             COM1_SWAP,
             COM2_SWAP,
             XPNDR_SET,
+            COM1_TX_SELECT,
+            COM2_TX_SELECT,
+            RX_ALL_SET,
         }
 
         private enum GROUPS { RADIO }
@@ -31,6 +34,9 @@ namespace TuneAndSwap
             public double Com2Active;
             public double Com2Standby;
             public int Transponder; // BCO16: 0x1200 = squawk 1200
+            public int Com1Transmit; // bool
+            public int Com2Transmit; // bool
+            public int ReceiveAll;   // bool
         }
 
         private SimConnect sim;
@@ -45,6 +51,12 @@ namespace TuneAndSwap
         private readonly TextBox com2Input = new TextBox { Text = "121.900", Width = 80 };
         private readonly Button com1Set = new Button { Text = "Set standby" };
         private readonly Button com2Set = new Button { Text = "Set standby" };
+        // AutoCheck is off: the sim is the source of truth, so the boxes only change when the readback says so.
+        private readonly RadioButton com1Tx = new RadioButton { Text = "COM1", AutoCheck = false, AutoSize = true };
+        private readonly RadioButton com2Tx = new RadioButton { Text = "COM2", AutoCheck = false, AutoSize = true };
+        private readonly CheckBox com1Mon = new CheckBox { Text = "COM1", AutoCheck = false, AutoSize = true, Enabled = false };
+        private readonly CheckBox com2Mon = new CheckBox { Text = "COM2", AutoCheck = false, AutoSize = true, Enabled = false };
+        private bool com1IsTx, com2IsTx, receiveAll;
         private readonly Label xpndrCode = NewReadout();
         private readonly TextBox xpndrInput = new TextBox { Text = "1200", Width = 80, MaxLength = 4 };
         private readonly Button xpndrSet = new Button { Text = "Set squawk" };
@@ -54,7 +66,7 @@ namespace TuneAndSwap
         public MainForm()
         {
             Text = "Prepar3D v5 - COM Tune & Swap PoC";
-            ClientSize = new System.Drawing.Size(520, 220);
+            ClientSize = new System.Drawing.Size(520, 300);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
 
@@ -75,6 +87,21 @@ namespace TuneAndSwap
             AddRow(grid, 2, "COM 1", com1Active, com1Standby, com1Input, com1Set, com1Swap);
             AddRow(grid, 3, "COM 2", com2Active, com2Standby, com2Input, com2Set, com2Swap);
 
+            var audio = new GroupBox { Text = "Audio panel", Dock = DockStyle.Bottom, Height = 90 };
+            var txFlow = new FlowLayoutPanel { Left = 12, Top = 20, Width = 220, Height = 60 };
+            txFlow.Controls.Add(new Label { Text = "Transmit (one):", AutoSize = true, Width = 100 });
+            txFlow.SetFlowBreak(txFlow.Controls[0], true);
+            txFlow.Controls.Add(com1Tx);
+            txFlow.Controls.Add(com2Tx);
+            var monFlow = new FlowLayoutPanel { Left = 250, Top = 20, Width = 240, Height = 60 };
+            monFlow.Controls.Add(new Label { Text = "Monitor (any):", AutoSize = true, Width = 100 });
+            monFlow.SetFlowBreak(monFlow.Controls[0], true);
+            monFlow.Controls.Add(com1Mon);
+            monFlow.Controls.Add(com2Mon);
+            audio.Controls.Add(txFlow);
+            audio.Controls.Add(monFlow);
+            Controls.Add(audio);
+
             grid.Controls.Add(new Label { Text = "XPDR", AutoSize = true }, 0, 4);
             grid.Controls.Add(xpndrCode, 1, 4);
             grid.Controls.Add(xpndrInput, 3, 4);
@@ -84,6 +111,12 @@ namespace TuneAndSwap
             connectButton.Click += (s, e) => { if (sim == null) Connect(); else Disconnect(); };
             com1Set.Click += (s, e) => SetStandby(EVENTS.COM1_STBY_SET, com1Input);
             com2Set.Click += (s, e) => SetStandby(EVENTS.COM2_STBY_SET, com2Input);
+            com1Tx.Click += (s, e) => Send(EVENTS.COM1_TX_SELECT, 0);
+            com2Tx.Click += (s, e) => Send(EVENTS.COM2_TX_SELECT, 0);
+            // The transmit radio always receives, so only the other radio's box is clickable.
+            // In the sim, "monitor the other radio" is COM_RECEIVE_ALL.
+            com1Mon.Click += (s, e) => Send(EVENTS.RX_ALL_SET, receiveAll ? 0u : 1u);
+            com2Mon.Click += (s, e) => Send(EVENTS.RX_ALL_SET, receiveAll ? 0u : 1u);
             xpndrSet.Click += (s, e) => SetTransponder();
             com1Swap.Click += (s, e) => Send(EVENTS.COM1_SWAP, 0);
             com2Swap.Click += (s, e) => Send(EVENTS.COM2_SWAP, 0);
@@ -113,7 +146,8 @@ namespace TuneAndSwap
 
         private void SetControlsEnabled(bool on)
         {
-            xpndrSet.Enabled = com1Set.Enabled = com2Set.Enabled = com1Swap.Enabled = com2Swap.Enabled = on;
+            com1Tx.Enabled = com2Tx.Enabled = xpndrSet.Enabled = com1Set.Enabled = com2Set.Enabled = com1Swap.Enabled = com2Swap.Enabled = on;
+            if (!on) com1Mon.Enabled = com2Mon.Enabled = false;
         }
 
         private void Connect()
@@ -131,6 +165,9 @@ namespace TuneAndSwap
                 sim.MapClientEventToSimEvent(EVENTS.COM1_STBY_SET, "COM_STBY_RADIO_SET");
                 sim.MapClientEventToSimEvent(EVENTS.COM2_STBY_SET, "COM2_STBY_RADIO_SET");
                 sim.MapClientEventToSimEvent(EVENTS.XPNDR_SET, "XPNDR_SET");
+                sim.MapClientEventToSimEvent(EVENTS.COM1_TX_SELECT, "COM1_TRANSMIT_SELECT");
+                sim.MapClientEventToSimEvent(EVENTS.COM2_TX_SELECT, "COM2_TRANSMIT_SELECT");
+                sim.MapClientEventToSimEvent(EVENTS.RX_ALL_SET, "COM_RECEIVE_ALL_SET");
                 sim.MapClientEventToSimEvent(EVENTS.COM1_SWAP, "COM_STBY_RADIO_SWAP");
                 sim.MapClientEventToSimEvent(EVENTS.COM2_SWAP, "COM2_RADIO_SWAP");
                 foreach (EVENTS ev in Enum.GetValues(typeof(EVENTS)))
@@ -143,6 +180,9 @@ namespace TuneAndSwap
                 sim.AddToDataDefinition(DEFINITIONS.RadioState, "COM ACTIVE FREQUENCY:2", "MHz", SIMCONNECT_DATATYPE.FLOAT64, 0, SimConnect.SIMCONNECT_UNUSED);
                 sim.AddToDataDefinition(DEFINITIONS.RadioState, "COM STANDBY FREQUENCY:2", "MHz", SIMCONNECT_DATATYPE.FLOAT64, 0, SimConnect.SIMCONNECT_UNUSED);
                 sim.AddToDataDefinition(DEFINITIONS.RadioState, "TRANSPONDER CODE:1", "bco16", SIMCONNECT_DATATYPE.INT32, 0, SimConnect.SIMCONNECT_UNUSED);
+                sim.AddToDataDefinition(DEFINITIONS.RadioState, "COM TRANSMIT:1", "bool", SIMCONNECT_DATATYPE.INT32, 0, SimConnect.SIMCONNECT_UNUSED);
+                sim.AddToDataDefinition(DEFINITIONS.RadioState, "COM TRANSMIT:2", "bool", SIMCONNECT_DATATYPE.INT32, 0, SimConnect.SIMCONNECT_UNUSED);
+                sim.AddToDataDefinition(DEFINITIONS.RadioState, "COM RECEIVE ALL", "bool", SIMCONNECT_DATATYPE.INT32, 0, SimConnect.SIMCONNECT_UNUSED);
                 sim.RegisterDataDefineStruct<RadioState>(DEFINITIONS.RadioState);
                 sim.RequestDataOnSimObject(REQUESTS.RadioState, DEFINITIONS.RadioState, SimConnect.SIMCONNECT_OBJECT_ID_USER,
                     SIMCONNECT_PERIOD.SIM_FRAME, SIMCONNECT_DATA_REQUEST_FLAG.CHANGED, 0, 0, 0);
@@ -182,6 +222,17 @@ namespace TuneAndSwap
             com2Active.Text = r.Com2Active.ToString("000.000", CultureInfo.InvariantCulture);
             com2Standby.Text = r.Com2Standby.ToString("000.000", CultureInfo.InvariantCulture);
             xpndrCode.Text = r.Transponder.ToString("X4");
+
+            com1IsTx = r.Com1Transmit != 0;
+            com2IsTx = r.Com2Transmit != 0;
+            receiveAll = r.ReceiveAll != 0;
+            com1Tx.Checked = com1IsTx;
+            com2Tx.Checked = com2IsTx;
+            // The transmit radio is always monitored; the other one is monitored when "receive all" is on.
+            com1Mon.Checked = com1IsTx || receiveAll;
+            com2Mon.Checked = com2IsTx || receiveAll;
+            com1Mon.Enabled = !com1IsTx;
+            com2Mon.Enabled = !com2IsTx;
         }
 
         private void SetStandby(EVENTS ev, TextBox input)

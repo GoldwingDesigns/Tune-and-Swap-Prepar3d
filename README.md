@@ -18,6 +18,9 @@ number you *read* in hex is the number you *mean* in decimal.
 | Swap COM1 active ↔ standby | `COM_STBY_RADIO_SWAP` (alias `COM1_RADIO_SWAP`) | unused (send `0`) | – |
 | Swap COM2 active ↔ standby | `COM2_RADIO_SWAP` | unused (send `0`) | – |
 | Set transponder code | `XPNDR_SET` | 16-bit BCD, the four squawk digits | squawk 1200 → `0x1200` |
+| Select COM1 as the transmit radio | `COM1_TRANSMIT_SELECT` | unused (send `0`) | – |
+| Select COM2 as the transmit radio | `COM2_TRANSMIT_SELECT` | unused (send `0`) | – |
+| Monitor both radios on / off | `COM_RECEIVE_ALL_SET` | `1` = on, `0` = off | `1` |
 
 ### Step by step
 
@@ -64,6 +67,24 @@ hex literal *looks like* the squawk: `0x1200` = squawk 1200, `0x7700` = 7700. In
 > Prepar3D v5 testing. The 16-bit form above (`0x1827`) did. If your radio doesn't change, check
 > the encoding first.
 
+### Transmit and monitor (audio panel)
+
+Only **one** radio can transmit, but **any** radio can be monitored (listened to). SimConnect models it like this:
+
+- **Transmit** is a one-of-N selection: send `COM1_TRANSMIT_SELECT` or `COM2_TRANSMIT_SELECT` (no data) and the
+  sim makes that radio the transmitter and un-selects the other. Selecting is not a toggle.
+- The transmit radio is **always** monitored.
+- **Monitoring the other radio** is controlled by `COM_RECEIVE_ALL_SET`: send `1` to hear both radios, `0` to hear
+  only the transmit radio. (Classic SimConnect has no per-radio "receive" event for a two-radio setup; "receive all"
+  is how you monitor the non-transmit radio.)
+
+The app reflects this: the transmit radio's monitor box is ticked and locked, and the other radio's box toggles
+`COM_RECEIVE_ALL_SET`. The UI never changes on click; it updates from the sim readback, so what you see is the
+sim's real state.
+
+> These three events follow the long-standing SimConnect/FSX event names. They have not yet been confirmed against
+> Prepar3D v5 by the author; if one does nothing, say so in an issue.
+
 ### Reading the values back
 
 The app registers one data definition and requests it whenever it changes:
@@ -73,13 +94,16 @@ The app registers one data definition and requests it whenever it changes:
 | `COM ACTIVE FREQUENCY:1` / `:2` | `MHz` | `FLOAT64` |
 | `COM STANDBY FREQUENCY:1` / `:2` | `MHz` | `FLOAT64` |
 | `TRANSPONDER CODE:1` | `bco16` | `INT32` (shown as hex, so `0x1200` reads as `1200`) |
+| `COM TRANSMIT:1` / `:2` | `bool` | `INT32` – which radio is the transmitter |
+| `COM RECEIVE ALL` | `bool` | `INT32` – whether the non-transmit radio is also monitored |
 
 ## Using the app
 
 1. Start Prepar3D v5 and load a flight.
 2. Run `TuneAndSwap.exe` and click **Connect**.
-3. Type a frequency (118.000–136.995 MHz) or squawk (4 digits, each 0–7) and click **Set standby** / **Set squawk**.
-4. Click **Swap** to exchange active and standby.
+3. Choose the **Transmit** radio and tick **Monitor** for the other radio if you want to hear both.
+4. Type a frequency (118.000–136.995 MHz) or squawk (4 digits, each 0–7) and click **Set standby** / **Set squawk**.
+5. Click **Swap** to exchange active and standby.
 
 ## Build (Windows)
 
