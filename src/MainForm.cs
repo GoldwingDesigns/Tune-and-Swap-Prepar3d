@@ -90,7 +90,7 @@ namespace TuneAndSwap
         {
             string[] h = { a, b, c, d, e, f };
             for (int i = 0; i < h.Length; i++)
-                g.Controls.Add(new Label { Text = h[i], AutoSize = true, Font = new System.Drawing.Font(SystemFonts.DefaultFont, System.Drawing.FontStyle.Bold) }, i, row);
+                g.Controls.Add(new Label { Text = h[i], AutoSize = true, Font = new System.Drawing.Font(System.Drawing.SystemFonts.DefaultFont, System.Drawing.FontStyle.Bold) }, i, row);
         }
 
         private static void AddRow(TableLayoutPanel g, int row, string name, Control active, Control standby, Control input, Control set, Control swap)
