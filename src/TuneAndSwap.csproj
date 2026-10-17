@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- Prepar3D v5 is 64-bit, so the SimConnect client must be too. -->
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>TuneAndSwap</RootNamespace>
+    <AssemblyName>TuneAndSwap</AssemblyName>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Override on the command line: msbuild /p:P3DSdkPath="C:\Program Files\Lockheed Martin\Prepar3D v5 SDK 5.x.x" -->
+    <P3DSdkPath Condition="'$(P3DSdkPath)' == ''">C:\Program Files\Lockheed Martin\Prepar3D v5 SDK 5.4.16.30000</P3DSdkPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="LockheedMartin.Prepar3D.SimConnect">
+      <HintPath>$(P3DSdkPath)\Core Utilities Kit\SimConnect SDK\lib\managed\LockheedMartin.Prepar3D.SimConnect.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>
