@@ -20,10 +20,6 @@ namespace TuneAndSwap
             COM1_TX_SELECT,
             COM2_TX_SELECT,
             RX_ALL_SET,
-            RX_ALL_TOGGLE,
-            PILOT_TX_SET,
-            COM1_RX_SELECT,
-            COM2_RX_SELECT,
         }
 
         private enum GROUPS { RADIO }
@@ -61,8 +57,6 @@ namespace TuneAndSwap
         private readonly CheckBox com1Mon = new CheckBox { Text = "COM1", AutoCheck = false, AutoSize = true, Enabled = false };
         private readonly CheckBox com2Mon = new CheckBox { Text = "COM2", AutoCheck = false, AutoSize = true, Enabled = false };
         private readonly TextBox log = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Bottom, Height = 90 };
-        private readonly Timer verifyTimer = new Timer { Interval = 500 };
-        private Action verifyAction;
         private bool com1IsTx, com2IsTx, receiveAll;
         private readonly Label xpndrCode = NewReadout();
         private readonly TextBox xpndrInput = new TextBox { Text = "1200", Width = 80, MaxLength = 4 };
@@ -109,7 +103,6 @@ namespace TuneAndSwap
             audio.Controls.Add(monFlow);
             Controls.Add(audio);
             Controls.Add(log);
-            verifyTimer.Tick += (s, e) => { verifyTimer.Stop(); var a = verifyAction; verifyAction = null; a?.Invoke(); };
 
             grid.Controls.Add(new Label { Text = "XPDR", AutoSize = true }, 0, 4);
             grid.Controls.Add(xpndrCode, 1, 4);
@@ -177,10 +170,6 @@ namespace TuneAndSwap
                 sim.MapClientEventToSimEvent(EVENTS.COM1_TX_SELECT, "COM1_TRANSMIT_SELECT");
                 sim.MapClientEventToSimEvent(EVENTS.COM2_TX_SELECT, "COM2_TRANSMIT_SELECT");
                 sim.MapClientEventToSimEvent(EVENTS.RX_ALL_SET, "COM_RECEIVE_ALL_SET");
-                sim.MapClientEventToSimEvent(EVENTS.RX_ALL_TOGGLE, "COM_RECEIVE_ALL_TOGGLE");
-                sim.MapClientEventToSimEvent(EVENTS.PILOT_TX_SET, "PILOT_TRANSMITTER_SET");
-                sim.MapClientEventToSimEvent(EVENTS.COM1_RX_SELECT, "COM1_RECEIVE_SELECT");
-                sim.MapClientEventToSimEvent(EVENTS.COM2_RX_SELECT, "COM2_RECEIVE_SELECT");
                 sim.MapClientEventToSimEvent(EVENTS.COM1_SWAP, "COM_STBY_RADIO_SWAP");
                 sim.MapClientEventToSimEvent(EVENTS.COM2_SWAP, "COM2_RADIO_SWAP");
                 foreach (EVENTS ev in Enum.GetValues(typeof(EVENTS)))
@@ -269,35 +258,17 @@ namespace TuneAndSwap
             log.AppendText(DateTime.Now.ToString("HH:mm:ss.fff") + "  " + text + "\r\n");
         }
 
-        /// <summary>
-        /// Makes COM1 (index 0) or COM2 (index 1) the transmit radio. Sends PILOT_TRANSMITTER_SET first and the
-        /// COMn_TRANSMIT_SELECT event last, so the explicit select wins if the two disagree on numbering.
-        /// </summary>
         private void SelectTransmit(uint index)
         {
             Log("TX -> COM" + (index + 1));
-            Send(EVENTS.PILOT_TX_SET, index);
             Send(index == 0 ? EVENTS.COM1_TX_SELECT : EVENTS.COM2_TX_SELECT, 0);
         }
 
-        /// <summary>
-        /// Toggles monitoring of the non-transmit radio. Sends COM_RECEIVE_ALL_SET and the per-radio
-        /// COMn_RECEIVE_SELECT; if the readback hasn't changed shortly after, falls back to COM_RECEIVE_ALL_TOGGLE.
-        /// </summary>
         private void SetMonitorOther(int radio)
         {
             bool want = !receiveAll;
             Log("Monitor COM" + radio + " -> " + (want ? "on" : "off"));
             Send(EVENTS.RX_ALL_SET, want ? 1u : 0u);
-            Send(radio == 1 ? EVENTS.COM1_RX_SELECT : EVENTS.COM2_RX_SELECT, want ? 1u : 0u);
-            verifyAction = () =>
-            {
-                if (receiveAll == want) return;
-                Log("No change after SET; trying COM_RECEIVE_ALL_TOGGLE");
-                Send(EVENTS.RX_ALL_TOGGLE, 0);
-            };
-            verifyTimer.Stop();
-            verifyTimer.Start();
         }
 
         private void SetTransponder()

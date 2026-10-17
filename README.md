@@ -82,14 +82,13 @@ The app reflects this: the transmit radio's monitor box is ticked and locked, an
 `COM_RECEIVE_ALL_SET`. The UI never changes on click; it updates from the sim readback, so what you see is the
 sim's real state.
 
-> **Compatibility fallbacks.** Add-on aircraft and different sim builds don't all honour the same events, so the app
-> sends a few equivalents: `PILOT_TRANSMITTER_SET` (0 = COM1, 1 = COM2) before `COMn_TRANSMIT_SELECT`, and
-> `COMn_RECEIVE_SELECT` alongside `COM_RECEIVE_ALL_SET`; if the readback hasn't changed 0.5 s later it also
-> sends `COM_RECEIVE_ALL_TOGGLE`. The log pane at the bottom of the window shows what was sent, any SimConnect
-> exception, and every change in the sim's TX/RX state, which makes it easy to see which event your aircraft responds to.
+> **Known limitation.** `PILOT_TRANSMITTER_SET`, `COM1_RECEIVE_SELECT` and `COM2_RECEIVE_SELECT` (MSFS-era events)
+> are not recognised by Prepar3D v5 (`NAME_UNRECOGNIZED`), so the app doesn't use them. The three events above *are*
+> recognised and the sim briefly applies them, but in some aircraft the aircraft's own audio-panel logic immediately
+> writes the old state back (the log pane shows the state changing and reverting within ~50 ms). Those aircraft keep
+> the audio panel in their own variables, and the standard SimConnect events can't override it. The log pane at the
+> bottom of the window shows what was sent, any SimConnect exception and every change in the sim's TX/RX state.
 
-> These three events follow the long-standing SimConnect/FSX event names. They have not yet been confirmed against
-> Prepar3D v5 by the author; if one does nothing, say so in an issue.
 
 ### Reading the values back
 
