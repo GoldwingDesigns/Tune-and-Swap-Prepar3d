@@ -16,6 +16,7 @@ namespace TuneAndSwap
             COM2_STBY_SET,
             COM1_SWAP,
             COM2_SWAP,
+            XPNDR_SET,
         }
 
         private enum GROUPS { RADIO }
@@ -29,6 +30,7 @@ namespace TuneAndSwap
             public double Com1Standby;
             public double Com2Active;
             public double Com2Standby;
+            public int Transponder; // BCO16: 0x1200 = squawk 1200
         }
 
         private SimConnect sim;
@@ -44,6 +46,9 @@ namespace TuneAndSwap
         private readonly TextBox com2Input = new TextBox { Text = "121.900", Width = 80 };
         private readonly Button com1Set = new Button { Text = "Set standby" };
         private readonly Button com2Set = new Button { Text = "Set standby" };
+        private readonly Label xpndrCode = NewReadout();
+        private readonly TextBox xpndrInput = new TextBox { Text = "1200", Width = 80, MaxLength = 4 };
+        private readonly Button xpndrSet = new Button { Text = "Set squawk" };
         private readonly Button com1Swap = new Button { Text = "Swap" };
         private readonly Button com2Swap = new Button { Text = "Swap" };
 
@@ -58,7 +63,7 @@ namespace TuneAndSwap
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 6,
-                RowCount = 5,
+                RowCount = 6,
                 Padding = new Padding(10),
             };
             Controls.Add(grid);
@@ -71,12 +76,18 @@ namespace TuneAndSwap
             AddRow(grid, 2, "COM 1", com1Active, com1Standby, com1Input, com1Set, com1Swap);
             AddRow(grid, 3, "COM 2", com2Active, com2Standby, com2Input, com2Set, com2Swap);
 
-            grid.Controls.Add(legacyBcd, 0, 4);
+            grid.Controls.Add(new Label { Text = "XPDR", AutoSize = true }, 0, 4);
+            grid.Controls.Add(xpndrCode, 1, 4);
+            grid.Controls.Add(xpndrInput, 3, 4);
+            grid.Controls.Add(xpndrSet, 4, 4);
+
+            grid.Controls.Add(legacyBcd, 0, 5);
             grid.SetColumnSpan(legacyBcd, 6);
 
             connectButton.Click += (s, e) => { if (sim == null) Connect(); else Disconnect(); };
             com1Set.Click += (s, e) => SetStandby(EVENTS.COM1_STBY_SET, com1Input);
             com2Set.Click += (s, e) => SetStandby(EVENTS.COM2_STBY_SET, com2Input);
+            xpndrSet.Click += (s, e) => SetTransponder();
             com1Swap.Click += (s, e) => Send(EVENTS.COM1_SWAP, 0);
             com2Swap.Click += (s, e) => Send(EVENTS.COM2_SWAP, 0);
 
@@ -105,7 +116,7 @@ namespace TuneAndSwap
 
         private void SetControlsEnabled(bool on)
         {
-            com1Set.Enabled = com2Set.Enabled = com1Swap.Enabled = com2Swap.Enabled = on;
+            xpndrSet.Enabled = com1Set.Enabled = com2Set.Enabled = com1Swap.Enabled = com2Swap.Enabled = on;
         }
 
         private void Connect()
@@ -122,6 +133,7 @@ namespace TuneAndSwap
                 // Client events -> sim events.
                 sim.MapClientEventToSimEvent(EVENTS.COM1_STBY_SET, "COM_STBY_RADIO_SET");
                 sim.MapClientEventToSimEvent(EVENTS.COM2_STBY_SET, "COM2_STBY_RADIO_SET");
+                sim.MapClientEventToSimEvent(EVENTS.XPNDR_SET, "XPNDR_SET");
                 sim.MapClientEventToSimEvent(EVENTS.COM1_SWAP, "COM_STBY_RADIO_SWAP");
                 sim.MapClientEventToSimEvent(EVENTS.COM2_SWAP, "COM2_RADIO_SWAP");
                 foreach (EVENTS ev in Enum.GetValues(typeof(EVENTS)))
@@ -133,6 +145,7 @@ namespace TuneAndSwap
                 sim.AddToDataDefinition(DEFINITIONS.RadioState, "COM STANDBY FREQUENCY:1", "MHz", SIMCONNECT_DATATYPE.FLOAT64, 0, SimConnect.SIMCONNECT_UNUSED);
                 sim.AddToDataDefinition(DEFINITIONS.RadioState, "COM ACTIVE FREQUENCY:2", "MHz", SIMCONNECT_DATATYPE.FLOAT64, 0, SimConnect.SIMCONNECT_UNUSED);
                 sim.AddToDataDefinition(DEFINITIONS.RadioState, "COM STANDBY FREQUENCY:2", "MHz", SIMCONNECT_DATATYPE.FLOAT64, 0, SimConnect.SIMCONNECT_UNUSED);
+                sim.AddToDataDefinition(DEFINITIONS.RadioState, "TRANSPONDER CODE:1", "bco16", SIMCONNECT_DATATYPE.INT32, 0, SimConnect.SIMCONNECT_UNUSED);
                 sim.RegisterDataDefineStruct<RadioState>(DEFINITIONS.RadioState);
                 sim.RequestDataOnSimObject(REQUESTS.RadioState, DEFINITIONS.RadioState, SimConnect.SIMCONNECT_OBJECT_ID_USER,
                     SIMCONNECT_PERIOD.SIM_FRAME, SIMCONNECT_DATA_REQUEST_FLAG.CHANGED, 0, 0, 0);
@@ -171,6 +184,7 @@ namespace TuneAndSwap
             com1Standby.Text = r.Com1Standby.ToString("000.000", CultureInfo.InvariantCulture);
             com2Active.Text = r.Com2Active.ToString("000.000", CultureInfo.InvariantCulture);
             com2Standby.Text = r.Com2Standby.ToString("000.000", CultureInfo.InvariantCulture);
+            xpndrCode.Text = r.Transponder.ToString("X4");
         }
 
         private void SetStandby(EVENTS ev, TextBox input)
@@ -184,6 +198,21 @@ namespace TuneAndSwap
             uint bcd = legacyBcd.Checked ? Bcd.FromMHzLegacy16(mhz) : Bcd.FromMHz(mhz);
             Send(ev, bcd);
             SetStatus(string.Format(CultureInfo.InvariantCulture, "Sent {0} = 0x{1:X} ({2:F3} MHz)", ev, bcd, mhz));
+        }
+
+        private void SetTransponder()
+        {
+            string code = xpndrInput.Text.Trim();
+            if (code.Length != 4 || code.IndexOfAny(new[] { '8', '9' }) >= 0
+                || !uint.TryParse(code, NumberStyles.None, CultureInfo.InvariantCulture, out _))
+            {
+                SetStatus("Squawk must be 4 octal digits (0-7), e.g. 1200");
+                return;
+            }
+            // XPNDR_SET takes the code as BCD16: squawk 1200 -> 0x1200.
+            uint bcd = Convert.ToUInt32(code, 16);
+            Send(EVENTS.XPNDR_SET, bcd);
+            SetStatus("Sent XPNDR_SET = 0x" + bcd.ToString("X4") + " (squawk " + code + ")");
         }
 
         private void Send(EVENTS ev, uint data)
